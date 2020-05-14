@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:chess_timer/countdown.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+final Duration gameDuration = Duration(minutes: 4, seconds: 10);
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({Key key}) : super(key: key);
@@ -12,19 +16,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final Duration _gameDuration = Duration(minutes: 0, seconds: 10);
-
   CountDown firstCountDown;
   CountDown secondCountDown;
   StreamSubscription<Duration> firstSubscription;
   StreamSubscription<Duration> secondSubscription;
 
-  final ValueNotifier<Duration> firstRemainingTime = ValueNotifier<Duration>(Duration());
-  final ValueNotifier<Duration> secondRemainingTime = ValueNotifier<Duration>(Duration());
+  final GameState _firstGameState = GameState(remainingTime: gameDuration, moveCount: 0);
+  final GameState _secondGameState = GameState(remainingTime: gameDuration, moveCount: 0);
 
   bool _isFirstPlaying = false;
-  bool _firstMovePlayed = false;
-  bool _secondMovePlayed = false;
   bool _firstPlayerReady = false;
   bool _secondPlayerReady = false;
   bool _gamePaused = false;
@@ -39,46 +39,21 @@ class _HomeScreenState extends State<HomeScreen> {
   ThemeData _themeData1 = ThemeData(
     primaryColor: Color(0xFF51356A),
     accentColor: Color(0xFFFAA526),
-    canvasColor: Color(0xFFC4D4C0),
-    disabledColor: Colors.red,
+    primaryColorLight: Color(0xFF784D9F),
+    primaryColorDark: Color(0xFFFFBD59),
+    canvasColor: Color(0xFFB1F1A0),
+    errorColor: Color(0xFFE57373),
   );
-
-  void _initCountdown() {
-    firstCountDown = CountDown(_gameDuration);
-    secondCountDown = CountDown(_gameDuration);
-
-    firstSubscription = firstCountDown.stream.listen(null);
-    secondSubscription = secondCountDown.stream.listen(null);
-
-    setState(() {
-      _isFirstPlaying = false;
-      _firstMovePlayed = false;
-      _firstPlayerReady = false;
-      _secondPlayerReady = false;
-      _gamePaused = false;
-      _gameEnded = false;
-      _firstLost = false;
-      _secondLost = false;
-    });
-  }
 
   @override
   void initState() {
-    firstCountDown = CountDown(_gameDuration);
-    secondCountDown = CountDown(_gameDuration);
+    firstCountDown = CountDown(gameDuration);
+    secondCountDown = CountDown(gameDuration);
 
-    firstSubscription = firstCountDown.stream.listen(null);
-    secondSubscription = secondCountDown.stream.listen(null);
+    firstSubscription = firstCountDown.stream.listen(_firstGameState.updateRemainingTime);
+    secondSubscription = secondCountDown.stream.listen(_secondGameState.updateRemainingTime);
 
-    firstSubscription.onData((Duration remainingTime) {
-      firstRemainingTime.value = remainingTime;
-    });
-    // Directly pauses the sub after starting it. Not optimal needs change
     firstSubscription.pause();
-
-    secondSubscription.onData((Duration remainingTime) {
-      secondRemainingTime.value = remainingTime;
-    });
     secondSubscription.pause();
 
     // On game ended :
@@ -117,23 +92,19 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         return;
       }
-      if (!_secondPlayerReady) return;
+      if (!_secondPlayerReady || !_isFirstPlaying && _firstGameState.moveCount > 0) return;
 
-      if (!_isFirstPlaying && _firstMovePlayed) return;
-
-      assert(_firstPlayerReady && _secondPlayerReady && (_isFirstPlaying || !_firstMovePlayed));
-
-      if (!_firstMovePlayed) {
-        _firstMovePlayed = true;
-        return;
+      if (_firstGameState.moveCount > 0) {
+        firstSubscription.pause();
+        secondSubscription.resume();
       }
-
-      firstSubscription.pause();
-      secondSubscription.resume();
       setState(() {
         _secondMargin = 0;
         _firstMargin = 15;
       });
+
+      _firstGameState.incrementMoveCount();
+
       _isFirstPlaying = false;
     } else {
       // Second player
@@ -145,26 +116,18 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         return;
       }
-      if (!_firstPlayerReady) return;
+      if (!_firstPlayerReady || (_isFirstPlaying && _firstGameState.moveCount > 0) || !(_firstGameState.moveCount > 0)) return;
 
-      if (_isFirstPlaying && _firstMovePlayed) return;
-
-      if (!_firstMovePlayed) return;
-
-      assert(_firstPlayerReady && _secondPlayerReady && !_isFirstPlaying && _firstMovePlayed);
-
-      if (!_secondMovePlayed) {
-        _secondMovePlayed = true;
-      }
-      else{
-        firstSubscription.resume();
+      if ((_secondGameState.moveCount > 0)) {
+        secondSubscription.pause();
       }
 
-      secondSubscription.pause();
       setState(() {
+        firstSubscription.resume();
         _secondMargin = 15;
         _firstMargin = 0;
       });
+      _secondGameState.incrementMoveCount();
 
       _isFirstPlaying = true;
     }
@@ -185,56 +148,69 @@ class _HomeScreenState extends State<HomeScreen> {
 
             Expanded(
               flex: 1,
-              child: GestureDetector(
-                // Allow to get invoked as soon as the user touch the screen.
-                onTapUp: (TapUpDetails _) {
-                  onPlayerTap(isFirstPlayer: false);
-                },
-                child: Transform.rotate(
-                  angle: pi,
-                  child: AnimatedContainer(
-                    duration: Duration(milliseconds: 500),
-                    curve: Curves.fastLinearToSlowEaseIn,
-                    margin: EdgeInsets.all(_secondMargin),
-                    padding: EdgeInsets.all(15),
-                    decoration: BoxDecoration(
+              child: ChangeNotifierProvider.value(
+                value: _secondGameState,
+                child: GestureDetector(
+                  // Allow to get invoked as soon as the user touch the screen.
+                  onTapUp: (TapUpDetails _) {
+                    onPlayerTap(isFirstPlayer: false);
+                  },
+                  child: Transform.rotate(
+                    angle: pi,
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: 500),
+                      curve: Curves.fastLinearToSlowEaseIn,
+                      margin: EdgeInsets.all(_secondMargin),
+                      padding: EdgeInsets.all(15),
+                      decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(_secondMargin),
-                        color: _secondLost ? _themeData1.disabledColor : !_secondPlayerReady ? Colors.blueGrey : _themeData1.accentColor,
+                        color: _secondLost ? _themeData1.errorColor : !_secondPlayerReady ? Colors.blueGrey : _themeData1.accentColor,
                         boxShadow: [
                           BoxShadow(blurRadius: _firstMargin),
-                        ]),
-                    /*decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color(0xFF213275),
-                                  Color(0xFFAD4A20),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                stops: [0.2, 0.2],
-                              ),
-                            ),*/
-                    child: Center(
-                      child: FittedBox(
-                        child: ValueListenableBuilder(
-                          valueListenable: secondRemainingTime,
-                          builder: (context, Duration duration, child) {
-                            Duration _showedDuration = _secondMovePlayed ? duration : _gameDuration;
+                        ],
+                        /*gradient: LinearGradient(
+                                    colors: [
+                                      _themeData1.accentColor,
+                                      _themeData1.primaryColorDark,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),*/
+                      ),
+                      child: Consumer<GameState>(
+                        builder: (context, GameState secondGameState, child) {
+                          Duration _showedDuration = secondGameState.remainingTime;
 
-                            int minutes = _showedDuration.inMinutes;
-                            int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
-                            //int milliseconds = _showedDuration.inMilliseconds % (Duration.millisecondsPerMinute * Duration.millisecondsPerSecond);
+                          int minutes = _showedDuration.inMinutes;
+                          int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
+                          //int milliseconds = _showedDuration.inMilliseconds % (Duration.millisecondsPerMinute * Duration.millisecondsPerSecond);
 
-                            String _showedValue =
-                                getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds); //+ ":" + getTwoDigitString(milliseconds);
+                          String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
 
-                            return Text(
-                              _showedValue,
-                              style: TextStyle(fontSize: 200, color: Colors.black),
-                              maxLines: 1,
-                            );
-                          },
-                        ),
+                          return Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Stack(
+                              children: [
+                                Align(
+                                  child: FittedBox(
+                                    child: Text(
+                                      _showedValue,
+                                      style: TextStyle(fontSize: 200, color: _themeData1.primaryColorLight),
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Text(
+                                    secondGameState.moveCount.toString(),
+                                    style: TextStyle(fontSize: 50, color: _themeData1.primaryColorLight),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -245,40 +221,55 @@ class _HomeScreenState extends State<HomeScreen> {
             // FIRST PLAYER
             Expanded(
               flex: 1,
-              child: GestureDetector(
-                onTapUp: (TapUpDetails tapUpDetails) => onPlayerTap(isFirstPlayer: true),
-                child: AnimatedContainer(
-                  duration: Duration(milliseconds: 500),
-                  curve: Curves.fastLinearToSlowEaseIn,
-                  margin: EdgeInsets.all(_firstMargin),
-                  padding: EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                      color: _firstLost ? _themeData1.disabledColor : !_firstPlayerReady ? Colors.grey : _themeData1.primaryColor,
-                      borderRadius: BorderRadius.circular(_firstMargin),
-                      boxShadow: [
-                        BoxShadow(blurRadius: _secondMargin),
-                      ]),
-                  child: Center(
-                    child: FittedBox(
-                      child: ValueListenableBuilder(
-                        valueListenable: firstRemainingTime,
-                        builder: (context, Duration duration, child) {
-                          Duration _showedDuration = _firstMovePlayed ? duration : _gameDuration;
+              child: ChangeNotifierProvider.value(
+                value: _firstGameState,
+                child: GestureDetector(
+                  onTapUp: (TapUpDetails tapUpDetails) => onPlayerTap(isFirstPlayer: true),
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 500),
+                    curve: Curves.fastLinearToSlowEaseIn,
+                    margin: EdgeInsets.all(_firstMargin),
+                    padding: EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                        color: _firstLost ? _themeData1.errorColor : !_firstPlayerReady ? Colors.grey : _themeData1.primaryColor,
+                        borderRadius: BorderRadius.circular(_firstMargin),
+                        boxShadow: [
+                          BoxShadow(blurRadius: _secondMargin),
+                        ]),
+                    child: Consumer<GameState>(
+                      builder: (context, GameState firstGameState, child) {
+                        Duration _showedDuration = firstGameState.remainingTime;
 
-                          int minutes = _showedDuration.inMinutes;
-                          int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
-                          //int milliseconds = duration.inMilliseconds ;
+                        int minutes = _showedDuration.inMinutes;
+                        int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
+                        //int milliseconds = duration.inMilliseconds ;
 
-                          String _showedValue =
-                              getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds); //+ ":" + getTwoDigitString(milliseconds);
+                        String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
 
-                          return Text(
-                            _showedValue,
-                            style: TextStyle(fontSize: 200, color: Colors.white),
-                            maxLines: 1,
-                          );
-                        },
-                      ),
+                        return Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Stack(
+                            children: [
+                              Align(
+                                child: FittedBox(
+                                  child: Text(
+                                    _showedValue,
+                                    style: TextStyle(fontSize: 200, color: _themeData1.primaryColorDark),
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.bottomRight,
+                                child: Text(
+                                  firstGameState.moveCount.toString(),
+                                  style: TextStyle(fontSize: 50, color: _themeData1.primaryColorDark),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -294,9 +285,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   opacity: _gamePaused ? 1.0 : 0.0,
                   curve: Curves.fastLinearToSlowEaseIn,
                   child: RaisedButton(
+                    color: _themeData1.primaryColorDark,
                     child: Icon(
                       Icons.settings,
                       size: 30,
+                      color: _themeData1.primaryColorLight,
                     ),
                     padding: EdgeInsets.all(4),
                     onPressed: () {
@@ -307,9 +300,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 RaisedButton(
+                  color: _themeData1.primaryColorDark,
                   child: Icon(
                     _gameEnded ? Icons.replay : _gamePaused ? Icons.play_arrow : Icons.pause,
                     size: 30,
+                    color: _themeData1.primaryColorLight,
                   ),
                   padding: EdgeInsets.all(4),
                   onPressed: () {
@@ -332,9 +327,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   opacity: _gamePaused ? 1.0 : 0.0,
                   curve: Curves.fastLinearToSlowEaseIn,
                   child: RaisedButton(
+                    color: _themeData1.primaryColorDark,
                     child: Icon(
                       Icons.palette,
                       size: 30,
+                      color: _themeData1.primaryColorLight,
                     ),
                     padding: EdgeInsets.all(4),
                     onPressed: () {
@@ -343,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: CircleBorder(),
                     elevation: 5,
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -353,5 +350,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Ideas :
-// - Wrap the two Expanded into one widget so it is easy to configurate. Especially if for exemple we create a swap button to swap colors so that the phone doesn't need to be truned over.
+// Change GameState Model to PlayerState and make a GameState model with all the booleans variables on game state.
+
+class GameState extends ChangeNotifier {
+  Duration remainingTime;
+  int moveCount;
+
+  GameState({this.remainingTime, this.moveCount});
+
+  void incrementMoveCount() {
+    moveCount += 1;
+    notifyListeners();
+  }
+
+  void updateRemainingTime(Duration remainingTime) {
+    this.remainingTime = remainingTime.abs();
+    notifyListeners();
+  }
+
+  void initialize() {
+    remainingTime = Duration();
+    moveCount = 0;
+    notifyListeners();
+  }
+}

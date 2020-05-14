@@ -35,7 +35,6 @@ class CountDown {
 
   /// the remaining time is set at '_refresh' ms accurate
   _onPause() {
-    _controller.add(remainingTime);
     isPaused = true;
     _timer.cancel();
     _timer = null;
