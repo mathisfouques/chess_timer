@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:chess_timer/countdown.dart';
+import 'package:chess_timer/palette_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final Duration gameDuration = Duration(minutes: 4, seconds: 10);
 
@@ -34,19 +36,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   double _firstMargin = 0, _secondMargin = 0;
 
-  // Stylish Red : Color(0xFFE57373)
+  Future<ThemeData> _themeData() async {
+    var prefs = await SharedPreferences.getInstance();
 
-  ThemeData _themeData1 = ThemeData(
-    primaryColor: Color(0xFF51356A),
-    accentColor: Color(0xFFFAA526),
-    primaryColorLight: Color(0xFF784D9F),
-    primaryColorDark: Color(0xFFFFBD59),
-    canvasColor: Color(0xFFB1F1A0),
-    errorColor: Color(0xFFE57373),
-  );
+    return themes[prefs.get('theme')?? 0];
+  }
 
   @override
   void initState() {
+    // Timer
     firstCountDown = CountDown(gameDuration);
     secondCountDown = CountDown(gameDuration);
 
@@ -140,211 +138,239 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _themeData1.canvasColor,
-      body: Stack(
-        children: [
-          Column(children: [
-            // SECOND PLAYER
+      body: FutureBuilder(
+        future: _themeData(),
+        builder: (context, themeDataSnapshot) {
+          if (!themeDataSnapshot.hasData) {
+            return Container();
+          }
 
-            Expanded(
-              flex: 1,
-              child: ChangeNotifierProvider.value(
-                value: _secondGameState,
-                child: GestureDetector(
-                  // Allow to get invoked as soon as the user touch the screen.
-                  onTapUp: (TapUpDetails _) {
-                    onPlayerTap(isFirstPlayer: false);
-                  },
-                  child: Transform.rotate(
-                    angle: pi,
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 500),
-                      curve: Curves.fastLinearToSlowEaseIn,
-                      margin: EdgeInsets.all(_secondMargin),
-                      padding: EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(_secondMargin),
-                        color: _secondLost ? _themeData1.errorColor : !_secondPlayerReady ? Colors.blueGrey : _themeData1.accentColor,
-                        boxShadow: [
-                          BoxShadow(blurRadius: _firstMargin),
-                        ],
-                        /*gradient: LinearGradient(
-                                    colors: [
-                                      _themeData1.accentColor,
-                                      _themeData1.primaryColorDark,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),*/
-                      ),
-                      child: Consumer<GameState>(
-                        builder: (context, GameState secondGameState, child) {
-                          Duration _showedDuration = secondGameState.remainingTime;
+          ThemeData currentThemeData = themeDataSnapshot.data as ThemeData;
 
-                          int minutes = _showedDuration.inMinutes;
-                          int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
-                          //int milliseconds = _showedDuration.inMilliseconds % (Duration.millisecondsPerMinute * Duration.millisecondsPerSecond);
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [currentThemeData.backgroundColor, currentThemeData.canvasColor],
+                end: Alignment.bottomRight,
+                begin: Alignment.topLeft,
+              ),
+            ),
+            child: Stack(
+              children: [
+                Column(children: [
+                  // SECOND PLAYER
 
-                          String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
-
-                          return Padding(
-                            padding: const EdgeInsets.all(10.0),
-                            child: Stack(
-                              children: [
-                                Align(
-                                  child: FittedBox(
-                                    child: Text(
-                                      _showedValue,
-                                      style: TextStyle(fontSize: 200, color: _themeData1.primaryColorLight),
-                                      maxLines: 1,
-                                    ),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: Text(
-                                    secondGameState.moveCount.toString(),
-                                    style: TextStyle(fontSize: 50, color: _themeData1.primaryColorLight),
-                                  ),
-                                ),
+                  Expanded(
+                    flex: 1,
+                    child: ChangeNotifierProvider.value(
+                      value: _secondGameState,
+                      child: GestureDetector(
+                        // Allow to get invoked as soon as the user touch the screen.
+                        onTapUp: (TapUpDetails _) {
+                          onPlayerTap(isFirstPlayer: false);
+                        },
+                        child: Transform.rotate(
+                          angle: pi,
+                          child: AnimatedContainer(
+                            duration: Duration(milliseconds: 500),
+                            curve: Curves.fastLinearToSlowEaseIn,
+                            margin: EdgeInsets.all(_secondMargin),
+                            padding: EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(_secondMargin),
+                              color: _secondLost
+                                  ? currentThemeData.errorColor
+                                  : !_secondPlayerReady ? Colors.blueGrey : currentThemeData.accentColor,
+                              boxShadow: [
+                                BoxShadow(blurRadius: _firstMargin, color: currentThemeData.accentColor),
                               ],
                             ),
-                          );
-                        },
+                            child: Consumer<GameState>(
+                              builder: (context, GameState secondGameState, child) {
+                                Duration _showedDuration = secondGameState.remainingTime;
+
+                                int minutes = _showedDuration.inMinutes;
+                                int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
+                                //int milliseconds = _showedDuration.inMilliseconds % (Duration.millisecondsPerMinute * Duration.millisecondsPerSecond);
+
+                                String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
+
+                                return Padding(
+                                  padding: const EdgeInsets.all(10.0),
+                                  child: Stack(
+                                    children: [
+                                      Align(
+                                        child: FittedBox(
+                                          child: Text(
+                                            _showedValue,
+                                            style: TextStyle(fontSize: 200, color: currentThemeData.primaryColorLight),
+                                            maxLines: 1,
+                                          ),
+                                        ),
+                                      ),
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Text(
+                                          secondGameState.moveCount.toString(),
+                                          style: TextStyle(fontSize: 50, color: currentThemeData.primaryColorLight),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
 
-            // FIRST PLAYER
-            Expanded(
-              flex: 1,
-              child: ChangeNotifierProvider.value(
-                value: _firstGameState,
-                child: GestureDetector(
-                  onTapUp: (TapUpDetails tapUpDetails) => onPlayerTap(isFirstPlayer: true),
-                  child: AnimatedContainer(
-                    duration: Duration(milliseconds: 500),
-                    curve: Curves.fastLinearToSlowEaseIn,
-                    margin: EdgeInsets.all(_firstMargin),
-                    padding: EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                        color: _firstLost ? _themeData1.errorColor : !_firstPlayerReady ? Colors.grey : _themeData1.primaryColor,
-                        borderRadius: BorderRadius.circular(_firstMargin),
-                        boxShadow: [
-                          BoxShadow(blurRadius: _secondMargin),
-                        ]),
-                    child: Consumer<GameState>(
-                      builder: (context, GameState firstGameState, child) {
-                        Duration _showedDuration = firstGameState.remainingTime;
-
-                        int minutes = _showedDuration.inMinutes;
-                        int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
-                        //int milliseconds = duration.inMilliseconds ;
-
-                        String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
-
-                        return Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Stack(
-                            children: [
-                              Align(
-                                child: FittedBox(
-                                  child: Text(
-                                    _showedValue,
-                                    style: TextStyle(fontSize: 200, color: _themeData1.primaryColorDark),
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ),
-                              Align(
-                                alignment: Alignment.bottomRight,
-                                child: Text(
-                                  firstGameState.moveCount.toString(),
-                                  style: TextStyle(fontSize: 50, color: _themeData1.primaryColorDark),
-                                ),
-                              ),
-                            ],
+                  // FIRST PLAYER
+                  Expanded(
+                    flex: 1,
+                    child: ChangeNotifierProvider.value(
+                      value: _firstGameState,
+                      child: GestureDetector(
+                        onTapUp: (TapUpDetails tapUpDetails) => onPlayerTap(isFirstPlayer: true),
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 500),
+                          curve: Curves.fastLinearToSlowEaseIn,
+                          margin: EdgeInsets.all(_firstMargin),
+                          padding: EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color:
+                                _firstLost ? currentThemeData.errorColor : !_firstPlayerReady ? Colors.grey : currentThemeData.primaryColor,
+                            borderRadius: BorderRadius.circular(_firstMargin),
+                            boxShadow: [BoxShadow(blurRadius: _secondMargin, color: currentThemeData.primaryColor)],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ]),
-          Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                AnimatedOpacity(
-                  duration: Duration(milliseconds: 1000),
-                  opacity: _gamePaused ? 1.0 : 0.0,
-                  curve: Curves.fastLinearToSlowEaseIn,
-                  child: RaisedButton(
-                    color: _themeData1.primaryColorDark,
-                    child: Icon(
-                      Icons.settings,
-                      size: 30,
-                      color: _themeData1.primaryColorLight,
-                    ),
-                    padding: EdgeInsets.all(4),
-                    onPressed: () {
-                      if (!_gamePaused) return;
-                    },
-                    shape: CircleBorder(),
-                    elevation: 5,
-                  ),
-                ),
-                RaisedButton(
-                  color: _themeData1.primaryColorDark,
-                  child: Icon(
-                    _gameEnded ? Icons.replay : _gamePaused ? Icons.play_arrow : Icons.pause,
-                    size: 30,
-                    color: _themeData1.primaryColorLight,
-                  ),
-                  padding: EdgeInsets.all(4),
-                  onPressed: () {
-                    if (_gameEnded) {}
+                          child: Consumer<GameState>(
+                            builder: (context, GameState firstGameState, child) {
+                              Duration _showedDuration = firstGameState.remainingTime;
 
-                    if (_isFirstPlaying) {
-                      _gamePaused ? firstSubscription.resume() : firstSubscription.pause();
-                    } else {
-                      _gamePaused ? secondSubscription.resume() : secondSubscription.pause();
-                    }
-                    setState(() {
-                      _gamePaused = !_gamePaused;
-                    });
-                  },
-                  shape: CircleBorder(),
-                  elevation: 5,
-                ),
-                AnimatedOpacity(
-                  duration: Duration(milliseconds: 1000),
-                  opacity: _gamePaused ? 1.0 : 0.0,
-                  curve: Curves.fastLinearToSlowEaseIn,
-                  child: RaisedButton(
-                    color: _themeData1.primaryColorDark,
-                    child: Icon(
-                      Icons.palette,
-                      size: 30,
-                      color: _themeData1.primaryColorLight,
+                              int minutes = _showedDuration.inMinutes;
+                              int seconds = _showedDuration.inSeconds % Duration.secondsPerMinute;
+                              //int milliseconds = duration.inMilliseconds ;
+
+                              String _showedValue = getTwoDigitString(minutes) + ":" + getTwoDigitString(seconds);
+
+                              return Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      child: FittedBox(
+                                        child: Text(
+                                          _showedValue,
+                                          style: TextStyle(fontSize: 200, color: currentThemeData.primaryColorDark),
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: Text(
+                                        firstGameState.moveCount.toString(),
+                                        style: TextStyle(fontSize: 50, color: currentThemeData.primaryColorDark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                    padding: EdgeInsets.all(4),
-                    onPressed: () {
-                      if (!_gamePaused) return;
-                    },
-                    shape: CircleBorder(),
-                    elevation: 5,
+                  ),
+                ]),
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      AnimatedOpacity(
+                        duration: Duration(milliseconds: 1000),
+                        opacity: _gamePaused ? 1.0 : 0.0,
+                        curve: Curves.fastLinearToSlowEaseIn,
+                        child: RaisedButton(
+                          color: currentThemeData.primaryColorDark,
+                          child: Icon(
+                            Icons.settings,
+                            size: 30,
+                            color: currentThemeData.primaryColorLight,
+                          ),
+                          padding: EdgeInsets.all(4),
+                          onPressed: () {
+                            if (!_gamePaused) return;
+                          },
+                          shape: CircleBorder(),
+                          elevation: 5,
+                        ),
+                      ),
+                      RaisedButton(
+                        color: currentThemeData.primaryColorDark,
+                        child: _gameEnded
+                            ? Icon(Icons.replay, size: 30, color: currentThemeData.primaryColorLight)
+                            : AnimatedCrossFade(
+                                duration: Duration(milliseconds: 300),
+                                crossFadeState: _gamePaused ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                                firstChild: Icon(
+                                  Icons.play_arrow,
+                                  size: 30,
+                                  color: currentThemeData.primaryColorLight,
+                                ),
+                                firstCurve: Curves.bounceInOut,
+                                secondChild: Icon(
+                                  Icons.pause,
+                                  size: 30,
+                                  color: currentThemeData.primaryColorLight,
+                                ),
+                                secondCurve: Curves.bounceInOut,
+                              ),
+                        padding: EdgeInsets.all(4),
+                        onPressed: () {
+                          if (_gameEnded) {}
+
+                          if (_isFirstPlaying) {
+                            _gamePaused ? firstSubscription.resume() : firstSubscription.pause();
+                          } else {
+                            _gamePaused ? secondSubscription.resume() : secondSubscription.pause();
+                          }
+                          setState(() {
+                            _gamePaused = !_gamePaused;
+                          });
+                        },
+                        shape: CircleBorder(),
+                        elevation: 5,
+                      ),
+                      AnimatedOpacity(
+                        duration: Duration(milliseconds: 1000),
+                        opacity: _gamePaused ? 1.0 : 0.0,
+                        curve: Curves.fastLinearToSlowEaseIn,
+                        child: RaisedButton(
+                          color: currentThemeData.primaryColorDark,
+                          child: Icon(
+                            Icons.palette,
+                            size: 30,
+                            color: currentThemeData.primaryColorLight,
+                          ),
+                          padding: EdgeInsets.all(4),
+                          onPressed: () {
+                            if (!_gamePaused) return;
+
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => PaletteScreen()));
+                          },
+                          shape: CircleBorder(),
+                          elevation: 5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

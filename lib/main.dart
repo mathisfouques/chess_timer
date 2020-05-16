@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import './home_screen.dart';
 import 'radial_progress.dart';
 
-void main() => runApp(MyApp());
+
+
+void main() async {
+  
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
@@ -20,4 +25,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
