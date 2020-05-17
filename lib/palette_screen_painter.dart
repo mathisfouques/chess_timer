@@ -45,8 +45,16 @@ class PaletteScreenPainter extends CustomPainter {
       ..lineTo(size.width, 0)
       ..lineTo(0, 0);
 
+    
+    final Path backPath = Path()
+      ..moveTo(0, size.height*0.8)
+      ..cubicTo(0, size.height*0.85, size.width*0.15, size.height*0.85, size.width*0.15, size.height*0.9)
+      ..cubicTo(size.width*0.15, size.height*0.95, 0, size.height*0.95, 0, size.height)
+      ..lineTo(0, size.height*0.8);
+
     //10
     canvas.drawPath(accentPath, accentPaint);
+    canvas.drawPath(backPath, accentPaint);
     //canvas.drawPath(firstDrop, accentPaint);
     //canvas.drawPath(secondDrop, accentPaint);
   }

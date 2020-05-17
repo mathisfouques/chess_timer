@@ -28,8 +28,8 @@ ThemeData _themeData3 = ThemeData(
   accentColor: Color(0xFF003B46),
   primaryColorLight: Color(0xFFC4DFE6),
   primaryColorDark: Color(0xFF07575B),
-  backgroundColor: Color(0xFF66A5AD),
-  canvasColor: Color(0xFF07575B),
+  backgroundColor: Color(0xFF07575B),
+  canvasColor: Color(0xFF66A5AD),
   errorColor: Color(0xFFE57373),
 );
 
@@ -111,10 +111,10 @@ Future<void> _setTheme(int index) async {
   await prefs.setInt('theme', index);
 }
 
-Future<ThemeData> _themeData() async {
+Future<int> _themeIndex() async {
   var prefs = await SharedPreferences.getInstance();
 
-  return themes[prefs.get('theme') ?? 0];
+  return prefs.get('theme') ?? 0;
 }
 
 class Indicator extends ValueNotifier<int> {
@@ -134,22 +134,22 @@ class PaletteScreen extends StatefulWidget {
 }
 
 class _PaletteScreenState extends State<PaletteScreen> {
-  PageController _controller = PageController(viewportFraction: 0.8);
+  PageController _controller;
   Indicator _pageNumber = Indicator(0);
 
   // TODO: Maybe use Scroll position and make it a listenable and make the animation of the animated container interpolates with this scroll position.
-  
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<ThemeData>(
-          future: _themeData(),
+      body: FutureBuilder<int>(
+          future: _themeIndex(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return Container();
             } else {
-              ThemeData currentThemeData = snapshot.data;
+              ThemeData currentThemeData = themes[snapshot.data];
+              _controller= PageController(viewportFraction: 0.8, initialPage: snapshot.data);
 
               SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(systemNavigationBarColor: currentThemeData.primaryColor));
 
@@ -209,6 +209,20 @@ class _PaletteScreenState extends State<PaletteScreen> {
                         ),
                       ),
                     ),
+                    Positioned.fromRect(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Icon(
+                          Icons.arrow_back_ios,
+                          color: currentThemeData.primaryColor,
+                          size: MediaQuery.of(context).size.width * 0.09,
+                        ),
+                      ),
+                      rect: Rect.fromCircle(
+                        center: Offset(MediaQuery.of(context).size.width * 0.075, MediaQuery.of(context).size.height * 0.9),
+                        radius: MediaQuery.of(context).size.width * 0.5,
+                      ),
+                    )
                   ],
                 ),
               );
@@ -233,7 +247,7 @@ class StyleTheme extends AnimatedWidget {
 
     return AnimatedContainer(
       duration: Duration(milliseconds: 300),
-      margin: EdgeInsets.fromLTRB(15, top, 15, 80),
+      margin: EdgeInsets.fromLTRB(15, top, 15, MediaQuery.of(context).size.height * 0.15),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         gradient: LinearGradient(
