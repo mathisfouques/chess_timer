@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final Duration gameDuration = Duration(seconds: 2);
+final Duration gameDuration = Duration(minutes: 5);
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({Key key}) : super(key: key);

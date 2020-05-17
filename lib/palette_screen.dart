@@ -101,8 +101,8 @@ List<ThemeData> themes = [
   _themeData5,
   _themeData6,
   _themeData7,
+  _themeData9,
   _themeData8,
-  _themeData9
 ];
 
 Future<void> _setTheme(int index) async {
@@ -135,7 +135,7 @@ class PaletteScreen extends StatefulWidget {
 
 class _PaletteScreenState extends State<PaletteScreen> {
   PageController _controller;
-  Indicator _pageNumber = Indicator(0);
+  Indicator _pageNumber;
 
   // TODO: Maybe use Scroll position and make it a listenable and make the animation of the animated container interpolates with this scroll position.
 
@@ -149,9 +149,10 @@ class _PaletteScreenState extends State<PaletteScreen> {
               return Container();
             } else {
               ThemeData currentThemeData = themes[snapshot.data];
-              _controller= PageController(viewportFraction: 0.8, initialPage: snapshot.data);
+              _controller = PageController(viewportFraction: 0.8, initialPage: snapshot.data);
+              _pageNumber = Indicator(snapshot.data);
 
-              SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(systemNavigationBarColor: currentThemeData.primaryColor));
+              SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(systemNavigationBarColor: MediaQuery.of(context).orientation == Orientation.portrait ? currentThemeData.primaryColor : currentThemeData.accentColor));
 
               return CustomPaint(
                 painter: PaletteScreenPainter(theme: currentThemeData),
@@ -215,12 +216,12 @@ class _PaletteScreenState extends State<PaletteScreen> {
                         child: Icon(
                           Icons.arrow_back_ios,
                           color: currentThemeData.primaryColor,
-                          size: MediaQuery.of(context).size.width * 0.09,
+                          size: (MediaQuery.of(context).orientation == Orientation.landscape ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.width) * 0.09,
                         ),
                       ),
                       rect: Rect.fromCircle(
                         center: Offset(MediaQuery.of(context).size.width * 0.075, MediaQuery.of(context).size.height * 0.9),
-                        radius: MediaQuery.of(context).size.width * 0.5,
+                        radius: MediaQuery.of(context).size.width * (MediaQuery.of(context).orientation == Orientation.landscape ? 0.3 : 0.5),
                       ),
                     )
                   ],
