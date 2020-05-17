@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:chess_timer/countdown.dart';
 import 'package:chess_timer/palette_screen.dart';
+import 'package:chess_timer/settings_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final Duration gameDuration = Duration(minutes: 5);
+
+Future<ThemeData> themeData() async {
+    var prefs = await SharedPreferences.getInstance();
+
+    return themes[prefs.get('theme') ?? 0];
+  }
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({Key key}) : super(key: key);
@@ -37,11 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   double _firstMargin = 0, _secondMargin = 0;
 
-  Future<ThemeData> _themeData() async {
-    var prefs = await SharedPreferences.getInstance();
-
-    return themes[prefs.get('theme') ?? 0];
-  }
+  
 
   void _resetGame() {
     _firstGameState.resetWithSpecificDuration(gameDuration);
@@ -191,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: FutureBuilder(
-        future: _themeData(),
+        future: themeData(),
         builder: (context, themeDataSnapshot) {
           if (!themeDataSnapshot.hasData) {
             return Container();
@@ -346,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       AnimatedOpacity(
-                        duration: Duration(milliseconds: 1000),
+                        duration: Duration(milliseconds: 500),
                         opacity: _gamePaused ? 1.0 : 0.0,
                         curve: Curves.fastLinearToSlowEaseIn,
                         child: RaisedButton(
@@ -359,6 +362,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: EdgeInsets.all(4),
                           onPressed: () {
                             if (!_gamePaused) return;
+
+                             Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SettingsScreen(),
+                                ));
                           },
                           shape: CircleBorder(),
                           elevation: 5,
@@ -404,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         elevation: 5,
                       ),
                       AnimatedOpacity(
-                        duration: Duration(milliseconds: 1000),
+                        duration: Duration(milliseconds: 500),
                         opacity: _gamePaused ? 1.0 : 0.0,
                         curve: Curves.fastLinearToSlowEaseIn,
                         child: RaisedButton(

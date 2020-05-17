@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 import './home_screen.dart';
-import 'radial_progress.dart';
-
-
 
 void main() async {
   
@@ -11,9 +8,6 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
-  final bool test = false;
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -21,7 +15,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: test ? Scaffold(body: RadialProgress()) : HomeScreen(),
+      home: HomeScreen(),
     );
 
     
