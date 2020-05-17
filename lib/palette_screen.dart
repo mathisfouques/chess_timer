@@ -1,5 +1,6 @@
 import 'package:chess_timer/palette_screen_painter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 ThemeData _themeData1 = ThemeData(
@@ -136,10 +137,12 @@ class _PaletteScreenState extends State<PaletteScreen> {
   PageController _controller = PageController(viewportFraction: 0.8);
   Indicator _pageNumber = Indicator(0);
 
+  // TODO: Maybe use Scroll position and make it a listenable and make the animation of the animated container interpolates with this scroll position.
+  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: FutureBuilder<ThemeData>(
           future: _themeData(),
           builder: (context, snapshot) {
@@ -147,6 +150,8 @@ class _PaletteScreenState extends State<PaletteScreen> {
               return Container();
             } else {
               ThemeData currentThemeData = snapshot.data;
+
+              SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(systemNavigationBarColor: currentThemeData.primaryColor));
 
               return CustomPaint(
                 painter: PaletteScreenPainter(theme: currentThemeData),
@@ -163,7 +168,7 @@ class _PaletteScreenState extends State<PaletteScreen> {
                         int index = themes.indexOf(theme);
 
                         return GestureDetector(
-                          onTap: () async {
+                          onTapUp: (_) async {
                             _setTheme(index);
                             setState(() {});
                           },
